@@ -41,27 +41,67 @@ window._getDocs = (col)           => getDocs(collection(db, col));
 
 // ── Listener en tiempo real para contratos ────────────────────────────────────
 var _unsubContratos = null;
+var _unsubCiclos    = null;
+var _unsubProvs     = null;
+
 window._startRealtimeSync = function() {
-  if(_unsubContratos) return; // ya activo
-  _unsubContratos = onSnapshot(collection(db, "contratos"), function(snap) {
-    if(!snap || snap.empty) return;
-    var fsData = snap.docs.map(d => d.data());
-    var mapaDedup = {};
-    fsData.forEach(c => {
-      var f = c.folio || ("__id_"+c.id);
-      if(!mapaDedup[f] || (c.id||0) > (mapaDedup[f].id||0)) mapaDedup[f] = c;
-    });
-    CTS = Object.values(mapaDedup);
-    window.CTS = CTS;
-    var st={}; CTS.forEach(c=>{st[String(c.id)]=c;});
-    localStorage.setItem("dmx_contratos", JSON.stringify(st));
-    try { renderExp(); loadMonitor(); } catch(e) {}
-  }, function(err) {
-    console.warn("onSnapshot contratos error:", err);
-  });
+  console.log("🔄 Iniciando sincronización en tiempo real...");
+
+  // ── Contratos ──
+  if(!_unsubContratos) {
+    _unsubContratos = onSnapshot(collection(db, "contratos"), function(snap) {
+      // Manejar SIEMPRE — incluso si está vacío (borrado en otra sesión)
+      var fsData = snap ? snap.docs.map(d => Object.assign({}, d.data(), {_fsid: d.id})) : [];
+      var mapaDedup = {};
+      fsData.forEach(c => {
+        var f = c.folio || ("__id_"+c.id);
+        if(!mapaDedup[f] || (c.id||0) > (mapaDedup[f].id||0)) mapaDedup[f] = c;
+      });
+      CTS = Object.values(mapaDedup);
+      window.CTS = CTS;
+      var st={}; CTS.forEach(c=>{st[String(c.id)]=c;});
+      localStorage.setItem("dmx_contratos", JSON.stringify(st));
+      try { renderExp(); } catch(e) {}
+      try { loadMonitor(); } catch(e) {}
+      console.log("🔄 Contratos actualizados en tiempo real:", CTS.length);
+    }, function(err) { console.warn("onSnapshot contratos error:", err.code, err.message); });
+  }
+
+  // ── Ciclos ──
+  if(!_unsubCiclos) {
+    _unsubCiclos = onSnapshot(collection(db, "ciclos"), function(snap) {
+      var cicMap = {};
+      if(snap && !snap.empty) {
+        snap.docs.map(d => d.data()).forEach(c => {
+          var key = String(c.id).toUpperCase().trim();
+          if(!cicMap[key] || c.activo) cicMap[key] = c;
+        });
+      }
+      CICLOS = Object.values(cicMap);
+      window.CICLOS = CICLOS;
+      var st={}; CICLOS.forEach(c=>{st[String(c.id)]=c;});
+      localStorage.setItem("dmx_ciclos", JSON.stringify(st));
+      try { syncCicloLabels(); } catch(e) {}
+    }, function(err) { console.warn("onSnapshot ciclos error:", err.code); });
+  }
+
+  // ── Proveedores ──
+  if(!_unsubProvs) {
+    _unsubProvs = onSnapshot(collection(db, "proveedores"), function(snap) {
+      PROVS = (snap && !snap.empty) ? snap.docs.map(d => d.data()) : [];
+      window.PROVS = PROVS;
+      var st={}; PROVS.forEach(p=>{st[String(p.id)]=p;});
+      localStorage.setItem("dmx_proveedores", JSON.stringify(st));
+      try { renderProvs(); } catch(e) {}
+    }, function(err) { console.warn("onSnapshot proveedores error:", err.code); });
+  }
 };
+
 window._stopRealtimeSync = function() {
   if(_unsubContratos) { _unsubContratos(); _unsubContratos = null; }
+  if(_unsubCiclos)    { _unsubCiclos();    _unsubCiclos    = null; }
+  if(_unsubProvs)     { _unsubProvs();     _unsubProvs     = null; }
+  console.log("🛑 Sincronización en tiempo real detenida");
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
