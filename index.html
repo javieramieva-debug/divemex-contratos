@@ -3576,23 +3576,31 @@ async function debugBorrarTodo() {
   keys.forEach(k => localStorage.removeItem(k));
   _dbgLog("🧹 localStorage limpiado: "+keys.length+" claves borradas", "#fca5a5");
 
-  // 2. Limpiar Firestore — contratos
+  // 2. Limpiar Firestore — contratos (leer directo de Firestore)
   let n = 0;
-  const lote = (CTS||[]).map(c=>c.id);
-  for(var id of lote) {
-    try { await window._fsDel("contratos", String(id)); n++; } catch(e) {}
-  }
+  try {
+    const snap = await window._getDocs("contratos");
+    snap.forEach(d => { try { window._fsDel("contratos", d.id); n++; } catch(e) {} });
+    await new Promise(r => setTimeout(r, 1500)); // esperar que terminen los deletes
+  } catch(e) { _dbgLog("⚠ Error leyendo contratos de Firestore: "+e.message, "#fbbf24"); }
   _dbgLog("🗑 Contratos borrados de Firestore: "+n, "#fca5a5");
 
   // 3. Limpiar Firestore — ciclos
   let nc = 0;
-  const ciclosLote = (CICLOS||[]).map(c=>c.id);
-  for(var cid of ciclosLote) {
-    try { await window._fsDel("ciclos", String(cid)); nc++; } catch(e) {}
-  }
+  try {
+    const snapC = await window._getDocs("ciclos");
+    snapC.forEach(d => { try { window._fsDel("ciclos", d.id); nc++; } catch(e) {} });
+    await new Promise(r => setTimeout(r, 500));
+  } catch(e) { _dbgLog("⚠ Error leyendo ciclos de Firestore: "+e.message, "#fbbf24"); }
   _dbgLog("🗑 Ciclos borrados de Firestore: "+nc, "#fca5a5");
 
-  // 4. Limpiar config de Firestore
+  // 4. Limpiar tarifas y config de Firestore
+  try {
+    const snapT = await window._getDocs("tarifas");
+    snapT.forEach(d => { try { window._fsDel("tarifas", d.id); } catch(e) {} });
+    await new Promise(r => setTimeout(r, 500));
+    _dbgLog("🗑 Tarifas borradas de Firestore", "#fca5a5");
+  } catch(e) {}
   try { await window._fsDel("config", "cfg"); _dbgLog("🗑 Configuración borrada de Firestore", "#fca5a5"); } catch(e) {}
 
   // 5. Limpiar memoria
