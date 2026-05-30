@@ -17,7 +17,7 @@
 // Todo el resto de la lógica vive en el script normal de abajo.
 // ══════════════════════════════════════════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
@@ -38,6 +38,31 @@ const auth = getAuth(app);
 window._fsSet   = (col, id, data) => setDoc(doc(db, col, String(id)), data);
 window._fsDel   = (col, id)       => deleteDoc(doc(db, col, String(id)));
 window._getDocs = (col)           => getDocs(collection(db, col));
+
+// ── Listener en tiempo real para contratos ────────────────────────────────────
+var _unsubContratos = null;
+window._startRealtimeSync = function() {
+  if(_unsubContratos) return; // ya activo
+  _unsubContratos = onSnapshot(collection(db, "contratos"), function(snap) {
+    if(!snap || snap.empty) return;
+    var fsData = snap.docs.map(d => d.data());
+    var mapaDedup = {};
+    fsData.forEach(c => {
+      var f = c.folio || ("__id_"+c.id);
+      if(!mapaDedup[f] || (c.id||0) > (mapaDedup[f].id||0)) mapaDedup[f] = c;
+    });
+    CTS = Object.values(mapaDedup);
+    window.CTS = CTS;
+    var st={}; CTS.forEach(c=>{st[String(c.id)]=c;});
+    localStorage.setItem("dmx_contratos", JSON.stringify(st));
+    try { renderExp(); loadMonitor(); } catch(e) {}
+  }, function(err) {
+    console.warn("onSnapshot contratos error:", err);
+  });
+};
+window._stopRealtimeSync = function() {
+  if(_unsubContratos) { _unsubContratos(); _unsubContratos = null; }
+};
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 window._fbLogin  = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
@@ -1401,9 +1426,11 @@ document.addEventListener("dmx-auth", function(e) {
     var nm = document.getElementById("tb-user-name");
     if(nm) nm.textContent = user.email.split("@")[0];
     cargarDatos();
+    if(window._startRealtimeSync) window._startRealtimeSync();
   } else {
     if(ls)  ls.style.display = "flex";
     if(app) app.style.display = "none";
+    if(window._stopRealtimeSync) window._stopRealtimeSync();
   }
 });
 
