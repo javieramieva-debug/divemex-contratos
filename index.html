@@ -1,3 +1,4 @@
+<!-- divemex-contratos v2.1 2026-05-30 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1022,7 +1023,7 @@ function fillMachote() {
     '{{RFC_PS}}': CFG.rfc,
     '{{DOMICILIO_FISCAL}}': CFG.dom,
     '{{ESCRITURA}}': CFG.esc,
-    '{{CICLO}}': CFG.ciclo,
+    '{{CICLO}}': getCicloActivo()?.label||"",
   };
   for (const [k, v] of Object.entries(reps)) {
     filled = filled.split(k).join(v || '');
@@ -1869,7 +1870,7 @@ function selMach(el,id){curMach=id;const m=MACHS.find(x=>x.id===id);document.get
 function genFolio(){
   const tmap={tractores_pf:"EQUIPOS",tractores_pm:"EQUIPOS",camion_1:"EQUIPOS",camion_n:"EQUIPOS",inmueble:"INMUEBLE",servicio:"SERV",suministro:"SUMI",traslado:"TRASL",custom:"CONT"};
   const t=tmap[curMach]||"CONT";
-  const ci=(CFG.ciclo||"2025-2026").replace("-","").slice(2,6);
+  const ci=(getCicloActivo()?.label||"2025-2026").replace("-","").slice(2,6);
   folioN++;
   const f=`PSE-SIN-${t}-${ci}-${String(folioN).padStart(3,"0")}`;
   const el=document.getElementById("t-folio");if(el)el.value=f;
@@ -2179,7 +2180,7 @@ function syncCicloLabels(){
   fillCicloSelect("ef-ciclo",cicloConsulta,true);
   fillCicloSelect("tar-ciclo-sel",ca.id);
   // Actualizar cfg-ciclo si está en CFG
-  CFG.ciclo=lbl;
+  // CFG.ciclo se deriva de getCicloActivo() — no se asigna directamente
 }
 
 // ── ARRENDADORES ─────────────────────────────────────────────────────────────
@@ -2334,7 +2335,8 @@ function delProy(pid,n){if(!confirm(`¿Eliminar "${n}"?`))return;const pl=PLANTA
 function editUser(id){const u=USERS.find(x=>x.id===id);if(!u)return;document.getElementById("nu-id").value=id;document.getElementById("nu-nom").value=u.nombre;document.getElementById("nu-email").value=u.email;document.getElementById("nu-rol").value=u.rol;document.getElementById("nu-planta").value=u.planta||"";document.getElementById("nu-activo").value=u.activo?"1":"0";document.getElementById("m-user-title").textContent="Editar — "+u.nombre;openM("m-user");}
 function saveUsuario(){const n=document.getElementById("nu-nom").value.trim();const e=document.getElementById("nu-email").value.trim();if(!n||!e){toast("Nombre y correo requeridos","warn");return;}const data={nombre:n,email:e,rol:document.getElementById("nu-rol").value,planta:document.getElementById("nu-planta").value,activo:document.getElementById("nu-activo").value==="1"};const eid=parseInt(document.getElementById("nu-id").value)||null;if(eid){const u=USERS.find(x=>x.id===eid);if(u)Object.assign(u,data);}else{USERS.push({id:Date.now(),...data});}closeM("m-user");renderConfig();toast("Usuario guardado.");document.getElementById("nu-id").value="";}
 function toggleUser(id){const u=USERS.find(x=>x.id===id);if(u){u.activo=!u.activo;renderConfig();toast(u.activo?"Usuario activado.":"Usuario desactivado.");}}
-function saveConfig(){CFG.nc=document.getElementById("cfg-nc").value;CFG.rs=document.getElementById("cfg-rs").value;CFG.rfc=document.getElementById("cfg-rfc").value;CFG.dom=document.getElementById("cfg-dom").value;CFG.esc=document.getElementById("cfg-esc").value;CFG.rl=document.getElementById("cfg-rl").value;CFG.email=document.getElementById("cfg-email").value;CFG.ea=document.getElementById("cfg-ea").value;CFG.ej=document.getElementById("cfg-ej").value;CFG.dias=parseInt(document.getElementById("cfg-dias").value)||30;// CFG.ciclo se deriva siempre de getCicloActivo() — no se persiste por separadodocument.getElementById("tb-brand").textContent=CFG.nc+" — Contratos";const mSub=document.getElementById("mon-sub");if(mSub)mSub.textContent=CFG.rs+" — Ciclo "+CFG.ciclo;document.getElementById("dias-lbl").textContent=CFG.dias;syncCicloLabels();var cfgToSave=Object.assign({},CFG); delete cfgToSave.ciclo; lsSetObj("cfg_obj",cfgToSave); saveDoc("config","cfg",cfgToSave);toast("Configuración guardada.");}
+function saveConfig(){CFG.nc=document.getElementById("cfg-nc").value;CFG.rs=document.getElementById("cfg-rs").value;CFG.rfc=document.getElementById("cfg-rfc").value;CFG.dom=document.getElementById("cfg-dom").value;CFG.esc=document.getElementById("cfg-esc").value;CFG.rl=document.getElementById("cfg-rl").value;CFG.email=document.getElementById("cfg-email").value;CFG.ea=document.getElementById("cfg-ea").value;CFG.ej=document.getElementById("cfg-ej").value;CFG.dias=parseInt(document.getElementById("cfg-dias").value)||30;
+document.getElementById("tb-brand").textContent=CFG.nc+" — Contratos";const mSub=document.getElementById("mon-sub");if(mSub)mSub.textContent=CFG.rs+" — Ciclo "+(getCicloActivo()?.label||"");document.getElementById("dias-lbl").textContent=CFG.dias;syncCicloLabels();var cfgToSave=Object.assign({},CFG); delete cfgToSave.ciclo; lsSetObj("cfg_obj",cfgToSave); saveDoc("config","cfg",cfgToSave);toast("Configuración guardada.");}
 function loadLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{CFG.logo=ev.target.result;document.getElementById("logo-prev").src=CFG.logo;document.getElementById("tb-logo").src=CFG.logo;toast("Logotipo actualizado.");};r.readAsDataURL(f);}
 
 // --- REPORTES ---
